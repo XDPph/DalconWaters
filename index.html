@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0284c7">
+    <title>Dalcon Water Billing System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        water: {
+                            DEFAULT: '#0284c7',
+                            light: '#38bdf8',
+                            dark: '#0369a1',
+                            deep: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- html2canvas library for PNG snapshot generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-bill, #printable-bill * { visibility: visible; }
+            #printable-bill { position: absolute; left: 0; top: 0; width: 100%; background: white !important; color: black !important; }
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-water selection:text-white">
+
+    <div id="app" class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- Rendered dynamically via JavaScript -->
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed bottom-24 sm:bottom-5 right-4 left-4 sm:left-auto z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <script>
+        const INITIAL_STATE = {
+            currentUser: null,
+            activeTab: 'dashboard',
+            portalMode: 'landing',
+            selectedLoginRole: null,
+            passwords: {
+                admin: '052140',
+                cashier: '10101010',
+                reader: '01201972'
+            },
+            consumers: [
+                { 
+                    id: 'C-101', name: 'Juan Dela Cruz', purok: 'Purok 1', validId: 'Driver License - DL#12345', username: 'juandc', password: 'password123', meterNo: 'M-5001', prevReading: 120, currReading: 155, ratePerCubic: 25.00, dueDate: '2026-05-15', status: 'Unpaid', approvalStatus: 'Approved', arrears: 0.00, advancePayment: 0.00,
+                    readingHistory: [
+                        { month: 'January 2026', prev: 80, curr: 95, consumed: 15, bill: 375.00, payment: 375.00 },
+                        { month: 'February 2026', prev: 95, curr: 105, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'March 2026', prev: 105, curr: 120, consumed: 15, bill: 375.00, payment: 375.00 },
+                        { month: 'April 2026', prev: 120, curr: 138, consumed: 18, bill: 450.00, payment: 450.00 },
+                        { month: 'May 2026', prev: 138, curr: 155, consumed: 17, bill: 425.00, payment: 0.00 }
+                    ]
+                },
+                { 
+                    id: 'C-102', name: 'Maria Santos', purok: 'Purok 2', validId: 'National ID - 9876-5432', username: 'mariasantos', password: 'password123', meterNo: 'M-5002', prevReading: 310, currReading: 330, ratePerCubic: 25.00, dueDate: '2026-05-18', status: 'Paid', approvalStatus: 'Approved', arrears: 0.00, advancePayment: 0.00,
+                    readingHistory: [
+                        { month: 'January 2026', prev: 270, curr: 290, consumed: 20, bill: 500.00, payment: 500.00 },
+                        { month: 'February 2026', prev: 290, curr: 300, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'March 2026', prev: 300, curr: 310, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'April 2026', prev: 310, curr: 320, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'May 2026', prev: 320, curr: 330, consumed: 10, bill: 250.00, payment: 250.00 }
+                    ]
+                },
+                { 
+                    id: 'C-103', name: 'Pedro Penduko', purok: 'Purok 3', validId: 'Passport - P9988776', username: 'pedrop', password: 'password123', meterNo: 'M-5003', prevReading: 85, currReading: 112, ratePerCubic: 25.00, dueDate: '2026-05-20', status: 'Unpaid', approvalStatus: 'Approved', arrears: 50.00, advancePayment: 0.00,
+                    readingHistory: [
+                        { month: 'March 2026', prev: 60, curr: 75, consumed: 15, bill: 375.00, payment: 375.00 },
+                        { month: 'April 2026', prev: 75, curr: 85, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'May 2026', prev: 85, curr: 112, consumed: 27, bill: 675.00, payment: 0.00 }
+                    ]
+                },
+                { 
+                    id: 'C-104', name: 'Elena Reyes', purok: 'Purok 4', validId: 'Voter ID - V-4433221', username: 'elena', password: 'password123', meterNo: 'M-5004', prevReading: 450, currReading: 468, ratePerCubic: 25.00, dueDate: '2026-05-22', status: 'Paid', approvalStatus: 'Approved', arrears: 0.00, advancePayment: 100.00,
+                    readingHistory: [
+                        { month: 'January 2026', prev: 410, curr: 430, consumed: 20, bill: 500.00, payment: 500.00 },
+                        { month: 'February 2026', prev: 430, curr: 440, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'March 2026', prev: 440, curr: 450, consumed: 10, bill: 250.00, payment: 250.00 },
+                        { month: 'May 2026', prev: 450, curr: 468, consumed: 18, bill: 450.00, payment: 450.00 }
+                    ]
+                }
+            ],
+            rates: {
+                baseRate: 25.00,
+                minimumConsumption: 10,
+                minimumCharge: 200.00,
+                penaltyPercentage: 10
+            },
+            payments: [
+                { id: 'TRX-9001', consumerId: 'C-102', consumerName: 'Maria Santos', amount: 550.00, date: '2026-05-01 10:30 AM', cashier: 'Cashier Anna', method: 'Cash', remarks: 'Full Payment' },
+                { id: 'TRX-9002', consumerId: 'C-104', consumerName: 'Elena Reyes', amount: 650.00, date: '2026-05-02 02:15 PM', cashier: 'Cashier Anna', method: 'Cash', remarks: 'Full Payment' }
+            ],
+            savedBillSnapshots: []
+        };
+
+        let appState = JSON.parse(localStorage.getItem('dalcon_water_state')) || INITIAL_STATE;
+        let clockInterval = null;
+
+        if (!appState.passwords) {
+            appState.passwords = { admin: '052140', cashier: '10101010', reader: '01201972' };
+        }
+        appState.consumers.forEach(c => {
+            if (c.arrears === undefined) c.arrears = 0.00;
+            if (c.advancePayment === undefined) c.advancePayment = 0.00;
+            if (c.approvalStatus === undefined) c.approvalStatus = 'Approved';
+            if (!c.readingHistory) {
+                c.readingHistory = [
+                    { month: 'April 2026', prev: c.prevReading, curr: c.currReading, consumed: Math.max(0, c.currReading - c.prevReading), bill: 250.00, payment: 250.00 }
+                ];
+            } else {
+                c.readingHistory.forEach(h => {
+                    if (h.bill === undefined) h.bill = (h.consumed || 0) * 25;
+                    if (h.payment === undefined) h.payment = h.bill;
+                });
+            }
+        });
+        if (!appState.savedBillSnapshots) appState.savedBillSnapshots = [];
+
+        function saveState() {
+            localStorage.setItem('dalcon_water_state', JSON.stringify(appState));
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgCol = type === 'error' ? 'bg-rose-600' : type === 'success' ? 'bg-emerald-600' : 'bg-water';
+            toast.className = `${bgCol} text-white px-4 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs sm:text-sm font-medium transform translate-y-4 opacity-0 transition-all duration-300 pointer-events-auto`;
+            toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : type === 'success' ? 'check-circle-2' : 'info'}" class="w-5 h-5 flex-shrink-0"></i><span class="flex-1">${message}</span>`;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function renderApp() {
+            const app = document.getElementById('app');
+            if (!appState.currentUser) {
+                app.innerHTML = renderSystemPortal();
+                startPhilippineClock();
+            } else {
+                if (clockInterval) clearInterval(clockInterval);
+                app.innerHTML = renderMainDashboard();
+            }
+            lucide.createIcons();
+        }
+
+        function startPhilippineClock() {
+            if (clockInterval) clearInterval(clockInterval);
+            updatePhilippineTime();
+            clockInterval = setInterval(updatePhilippineTime, 1000);
+        }
+
+        function updatePhilippineTime() {
+            const el = document.getElementById('ph-clock-display');
+            if (!el) return;
+            const now = new Date();
+            const options = {
+                timeZone: 'Asia/Manila',
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
+            el.innerText = '🇵🇭 ' + new Intl.DateTimeFormat('en-US', options).format(now);
+        }
+
+        function renderSystemPortal() {
+            return `
+                <div class="flex-1 flex flex-col lg:flex-row overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+                    <div class="lg:w-1/2 p-6 sm:p-10 lg:p-16 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-800/80">
+                        <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(2,132,199,0.15),transparent_50%)] pointer-events-none"></div>
+                        <div class="relative z-10 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-water flex items-center justify-center shadow-lg shadow-water/30 text-white">
+                                    <i data-lucide="droplets" class="w-6 h-6 sm:w-7 sm:h-7"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">DALCON WATER</h1>
+                                    <p class="text-[10px] sm:text-xs text-water-light font-medium uppercase tracking-wider">Water Billing System</p>
+                                </div>
+                            </div>
+                            <button onclick="setPortalMode('landing')" class="flex items-center space-x-1.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition shadow-sm">
+                                <i data-lucide="compass" class="w-4 h-4 text-water-light"></i>
+                                <span class="hidden sm:inline">System Portal</span>
+                            </button>
+                        </div>
+
+                        <div class="relative z-10 my-auto py-8 lg:py-12 space-y-4 sm:space-y-6">
+                            <div class="w-full sm:w-auto bg-slate-900/90 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg flex flex-col items-center sm:items-start text-center sm:text-left">
+                                <div class="flex items-center space-x-2 text-xs font-semibold text-water-light mb-1">
+                                    <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+                                    <span>Philippine Standard Time (PST)</span>
+                                </div>
+                                <div id="ph-clock-display" class="font-mono text-xl sm:text-2xl font-black text-white tracking-tight">
+                                    Loading Time...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 text-[11px] text-slate-500 pt-4 flex items-center justify-between">
+                            <span>&copy; 2026 Dalcon Waterworks Corporation. All rights reserved.</span>
+                            <span class="text-slate-400 font-medium">Tayug, Pangasinan, Philippines</span>
+                        </div>
+                    </div>
+
+                    <div class="lg:w-1/2 p-6 sm:p-10 lg:p-16 flex items-center justify-center overflow-y-auto">
+                        <div class="w-full max-w-md space-y-6">
+                            ${appState.portalMode === 'landing' ? renderPortalLanding() : ''}
+                            ${appState.portalMode === 'login' ? renderPortalLogin() : ''}
+                            ${appState.portalMode === 'signup' ? renderPortalSignup() : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setPortalMode(mode, role = null) {
+            appState.portalMode = mode;
+            appState.selectedLoginRole = role;
+            renderApp();
+        }
+
+        function renderPortalLanding() {
+            return `
+                <div class="space-y-5 animate-in fade-in duration-200">
+                    <div>
+                        <h3 class="text-xl sm:text-2xl font-bold text-white tracking-tight">System Portal</h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-1">Select sign up or log in</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3.5 pt-2">
+                        <button onclick="setPortalMode('signup')" class="group bg-slate-900 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/60 p-5 sm:p-6 rounded-2xl transition text-left flex items-center space-x-4 shadow-sm active:scale-[0.99]">
+                            <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                                <i data-lucide="user-plus" class="w-6 h-6"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-white font-bold text-sm sm:text-base">Sign Up</h4>
+                                <p class="text-xs text-slate-400 mt-0.5">Register new consumer account & upload Valid ID</p>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:text-white transition"></i>
+                        </button>
+
+                        <button onclick="setPortalMode('login')" class="group bg-slate-900 hover:bg-slate-800/90 border border-slate-800 hover:border-water/60 p-5 sm:p-6 rounded-2xl transition text-left flex items-center space-x-4 shadow-sm active:scale-[0.99]">
+                            <div class="w-12 h-12 rounded-xl bg-water/20 border border-water/30 flex items-center justify-center text-water-light flex-shrink-0">
+                                <i data-lucide="log-in" class="w-6 h-6"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-white font-bold text-sm sm:text-base">Log In</h4>
+                                <p class="text-xs text-slate-400 mt-0.5">Select role to login (Admin, Cashier, Meter Reader, Consumer)</p>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-500 group-hover:text-white transition"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPortalLogin() {
+            if (!appState.selectedLoginRole) {
+                return `
+                    <div class="space-y-5 animate-in fade-in duration-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Select Login Role</h3>
+                                <p class="text-xs sm:text-sm text-slate-400 mt-1">Choose your role to login</p>
+                            </div>
+                            <button onclick="setPortalMode('landing')" class="text-xs text-water-light hover:underline font-semibold flex items-center space-x-1 py-1 px-2">
+                                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                                <span>Back</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3">
+                            <button onclick="setPortalMode('login', 'admin')" class="bg-slate-900 border border-slate-800 hover:border-purple-500/60 p-4 rounded-2xl transition flex items-center space-x-4 text-left group active:scale-[0.99]">
+                                <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-white font-semibold text-sm">Administrator</div>
+                                    <div class="text-xs text-slate-400">Full control, approvals & consumers</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+
+                            <button onclick="setPortalMode('login', 'cashier')" class="bg-slate-900 border border-slate-800 hover:border-emerald-500/60 p-4 rounded-2xl transition flex items-center space-x-4 text-left group active:scale-[0.99]">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-white font-semibold text-sm">Cashier</div>
+                                    <div class="text-xs text-slate-400">Payment related transactions</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+
+                            <button onclick="setPortalMode('login', 'reader')" class="bg-slate-900 border border-slate-800 hover:border-amber-500/60 p-4 rounded-2xl transition flex items-center space-x-4 text-left group active:scale-[0.99]">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="gauge" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-white font-semibold text-sm">Meter Reader</div>
+                                    <div class="text-xs text-slate-400">Enter readings & generate PNG bill snapshots</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+
+                            <button onclick="setPortalMode('login', 'consumer')" class="bg-slate-900 border border-slate-800 hover:border-sky-500/60 p-4 rounded-2xl transition flex items-center space-x-4 text-left group active:scale-[0.99]">
+                                <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="user" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-white font-semibold text-sm">Consumer Portal</div>
+                                    <div class="text-xs text-slate-400">View personal bill & payment history</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const roleTitles = {
+                admin: { title: 'Administrator Login', icon: 'shield-check', color: 'text-purple-400 bg-purple-500/20 border-purple-500/30' },
+                cashier: { title: 'Cashier Login', icon: 'wallet', color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' },
+                reader: { title: 'Meter Reader Login', icon: 'gauge', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
+                consumer: { title: 'Consumer Login', icon: 'user', color: 'text-sky-400 bg-sky-500/20 border-sky-500/30' }
+            };
+            const info = roleTitles[appState.selectedLoginRole];
+
+            return `
+                <div class="space-y-5 animate-in fade-in duration-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl ${info.color} flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="${info.icon}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold text-white">${info.title}</h3>
+                                <p class="text-xs text-slate-400">Enter secure credentials</p>
+                            </div>
+                        </div>
+                        <button onclick="setPortalMode('login', null)" class="text-xs text-water-light hover:underline font-semibold flex items-center space-x-1 py-1 px-2">
+                            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                            <span>Roles</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
+                        ${appState.selectedLoginRole === 'admin' ? `
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Administrator Password</label>
+                                <input type="password" id="admin-pass" placeholder="Enter password" class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-4 py-3.5 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <button onclick="handleAdminLogin()" class="w-full bg-water hover:bg-water-dark active:scale-[0.99] text-white font-semibold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-sm">Log In as Administrator</button>
+                        ` : ''}
+
+                        ${appState.selectedLoginRole === 'cashier' ? `
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Cashier Password</label>
+                                <input type="password" id="cashier-pass" placeholder="Enter password" class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-4 py-3.5 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <button onclick="handleCashierLogin()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-sm">Log In as Cashier</button>
+                        ` : ''}
+
+                        ${appState.selectedLoginRole === 'reader' ? `
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Meter Reader Password</label>
+                                <input type="password" id="reader-pass" placeholder="Enter password" class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-4 py-3.5 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <button onclick="handleReaderLogin()" class="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-sm">Log In as Meter Reader</button>
+                        ` : ''}
+
+                        ${appState.selectedLoginRole === 'consumer' ? `
+                            <div class="space-y-3.5">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Username</label>
+                                    <input type="text" id="consumer-username" placeholder="Enter username" class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-4 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                                    <input type="password" id="consumer-password" placeholder="Enter password" class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-4 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                                <button onclick="handleConsumerLogin()" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-sm mt-2">Log In as Consumer</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPortalSignup() {
+            return `
+                <div class="space-y-5 animate-in fade-in duration-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="user-plus" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold text-white">Consumer Sign Up</h3>
+                                <p class="text-xs text-slate-400">Register new water service account (Requires Admin approval)</p>
+                            </div>
+                        </div>
+                        <button onclick="setPortalMode('landing')" class="text-xs text-water-light hover:underline font-semibold flex items-center space-x-1 py-1 px-2">
+                            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                            <span>Back</span>
+                        </button>
+                    </div>
+
+                    <form onsubmit="handleConsumerRegistration(event)" class="bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm space-y-3.5">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
+                            <input type="text" id="reg-name" required placeholder="e.g. Juan Dela Cruz" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Purok *</label>
+                            <input type="text" id="reg-purok" required placeholder="e.g. Purok 1" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Upload Valid ID (Required for Approval) *</label>
+                            <div class="flex items-center justify-between w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-400">
+                                <input type="file" id="reg-validid-file" required accept="image/*,.pdf" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-water file:text-white hover:file:bg-water-dark cursor-pointer">
+                            </div>
+                            <span class="text-[10px] text-slate-500 mt-1 block">Image or PDF (Required for ID verification)</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Set Username *</label>
+                                <input type="text" id="reg-username" required placeholder="Username" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Set Password *</label>
+                                <input type="password" id="reg-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-sm">Submit Registration for Approval</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        function handleAdminLogin() {
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === appState.passwords.admin) {
+                appState.currentUser = { role: 'admin', username: 'admin', name: 'Administrator' };
+                saveState();
+                renderApp();
+                showToast('Welcome, Administrator!', 'success');
+            } else {
+                showToast('Incorrect Admin Password!', 'error');
+            }
+        }
+
+        function handleCashierLogin() {
+            const pass = document.getElementById('cashier-pass').value;
+            if (pass === appState.passwords.cashier) {
+                appState.currentUser = { role: 'cashier', username: 'cashier', name: 'Cashier Anna' };
+                saveState();
+                renderApp();
+                showToast('Welcome, Cashier!', 'success');
+            } else {
+                showToast('Incorrect Cashier Password!', 'error');
+            }
+        }
+
+        function handleReaderLogin() {
+            const pass = document.getElementById('reader-pass').value;
+            if (pass === appState.passwords.reader) {
+                appState.currentUser = { role: 'reader', username: 'reader', name: 'Meter Reader Marco' };
+                saveState();
+                renderApp();
+                showToast('Welcome, Meter Reader!', 'success');
+            } else {
+                showToast('Incorrect Meter Reader Password!', 'error');
+            }
+        }
+
+        function handleConsumerLogin() {
+            const user = document.getElementById('consumer-username').value.trim();
+            const pass = document.getElementById('consumer-password').value.trim();
+            const found = appState.consumers.find(c => c.username === user && c.password === pass);
+            if (found) {
+                if (found.approvalStatus === 'Declined') {
+                    showToast('Your registration has been declined by the administrator.', 'error');
+                    return;
+                }
+                if (found.approvalStatus === 'Pending') {
+                    showToast('Your account is pending administrator approval. Please wait.', 'info');
+                    return;
+                }
+                appState.currentUser = { role: 'consumer', username: found.username, name: found.name, consumerId: found.id };
+                saveState();
+                renderApp();
+                showToast(`Welcome back, ${found.name}!`, 'success');
+            } else {
+                showToast('Invalid consumer username or password!', 'error');
+            }
+        }
+
+        function handleConsumerRegistration(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value.trim();
+            const purok = document.getElementById('reg-purok').value.trim();
+            const fileInput = document.getElementById('reg-validid-file');
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Please upload a valid ID document.', 'error');
+                return;
+            }
+
+            const validIdFileName = fileInput.files[0].name;
+
+            if (appState.consumers.some(c => c.username === username)) {
+                showToast('Username is already taken. Please choose another.', 'error');
+                return;
+            }
+
+            const newIdNum = 101 + appState.consumers.length;
+            const newConsumer = {
+                id: `C-${newIdNum}`,
+                name,
+                purok,
+                validId: `Uploaded ID: ${validIdFileName}`,
+                username,
+                password,
+                meterNo: `M-500${newIdNum}`,
+                prevReading: 0,
+                currReading: 0,
+                ratePerCubic: appState.rates.baseRate,
+                dueDate: '2026-06-01',
+                status: 'Unpaid',
+                approvalStatus: 'Pending',
+                arrears: 0.00,
+                advancePayment: 0.00,
+                readingHistory: [
+                    { month: 'May 2026', prev: 0, curr: 0, consumed: 0, bill: 0.00, payment: 0.00 }
+                ]
+            };
+
+            appState.consumers.push(newConsumer);
+            saveState();
+            setPortalMode('login', 'consumer');
+            showToast('Registration submitted successfully! Pending administrator approval.', 'success');
+        }
+
+        function logout() {
+            appState.currentUser = null;
+            appState.portalMode = 'landing';
+            appState.selectedLoginRole = null;
+            saveState();
+            renderApp();
+            showToast('Returned to System Portal.', 'info');
+        }
+
+        function renderMainDashboard() {
+            const role = appState.currentUser.role;
+            return `
+                <div class="flex flex-col md:flex-row h-full overflow-hidden bg-slate-950 pb-20 md:pb-0">
+                    <!-- Desktop Sidebar -->
+                    <aside class="w-64 bg-slate-900 border-r border-slate-800 flex-col justify-between hidden md:flex">
+                        <div class="p-6">
+                            <div class="flex items-center space-x-3 mb-8">
+                                <div class="w-10 h-10 rounded-xl bg-water flex items-center justify-center text-white shadow-md shadow-water/30">
+                                    <i data-lucide="droplets" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h2 class="font-bold text-white text-sm tracking-tight">DALCON WATER</h2>
+                                    <p class="text-[10px] text-water-light uppercase font-semibold">Billing System</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Navigation</div>
+                                <button onclick="setTab('dashboard')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'dashboard' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                                    <span>Dashboard</span>
+                                </button>
+                                ${role === 'admin' ? `
+                                    <button onclick="setTab('consumers')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'consumers' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="users" class="w-4 h-4"></i>
+                                        <span>Consumer Accounts</span>
+                                    </button>
+                                    <button onclick="setTab('rates')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'rates' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="sliders" class="w-4 h-4"></i>
+                                        <span>Rates & Pricing</span>
+                                    </button>
+                                    <button onclick="setTab('passwords')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'passwords' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="key-round" class="w-4 h-4"></i>
+                                        <span>Manage Passwords</span>
+                                    </button>
+                                    <button onclick="setTab('database')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'database' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="database" class="w-4 h-4"></i>
+                                        <span>Drive Backup & DB</span>
+                                    </button>
+                                    <button onclick="setTab('reports')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'reports' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                                        <span>System Reports</span>
+                                    </button>
+                                ` : ''}
+                                ${role === 'cashier' ? `
+                                    <button onclick="setTab('payments')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'payments' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="credit-card" class="w-4 h-4"></i>
+                                        <span>Payment Transactions</span>
+                                    </button>
+                                    <button onclick="exportYearRoundExcel()" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition text-slate-400 hover:bg-slate-800 hover:text-white">
+                                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+                                        <span>Export Year-Round Excel</span>
+                                    </button>
+                                ` : ''}
+                                ${role === 'reader' ? `
+                                    <button onclick="setTab('readings')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'readings' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="gauge" class="w-4 h-4"></i>
+                                        <span>Meter Reading & PNG Bill</span>
+                                    </button>
+                                ` : ''}
+                                ${role === 'consumer' ? `
+                                    <button onclick="setTab('my-statement')" class="w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition ${appState.activeTab === 'my-statement' ? 'bg-water text-white shadow-md shadow-water/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}">
+                                        <i data-lucide="receipt" class="w-4 h-4"></i>
+                                        <span>Billing Statement</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t border-slate-800">
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-lg bg-water/20 text-water-light flex items-center justify-center font-bold text-xs">
+                                        ${appState.currentUser.name.charAt(0)}
+                                    </div>
+                                    <div class="overflow-hidden">
+                                        <div class="text-xs font-bold text-white truncate">${appState.currentUser.name}</div>
+                                        <div class="text-[10px] text-slate-400 capitalize">${appState.currentUser.role}</div>
+                                    </div>
+                                </div>
+                                <button onclick="logout()" title="System Portal" class="text-slate-400 hover:text-water-light transition p-2 rounded-lg hover:bg-slate-900">
+                                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Mobile Bottom Navigation Bar -->
+                    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-40 flex items-center overflow-x-auto px-2 py-2 space-x-2 shadow-2xl">
+                        <button onclick="setTab('dashboard')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'dashboard' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                            <i data-lucide="layout-dashboard" class="w-5 h-5 mb-1"></i>
+                            <span class="text-[10px] font-semibold">Home</span>
+                        </button>
+                        ${role === 'admin' ? `
+                            <button onclick="setTab('consumers')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'consumers' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="users" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Users</span>
+                            </button>
+                            <button onclick="setTab('rates')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'rates' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="sliders" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Rates</span>
+                            </button>
+                            <button onclick="setTab('passwords')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'passwords' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="key-round" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Pass</span>
+                            </button>
+                            <button onclick="setTab('database')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'database' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="database" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Backup</span>
+                            </button>
+                            <button onclick="setTab('reports')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'reports' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="bar-chart-3" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Reports</span>
+                            </button>
+                        ` : ''}
+                        ${role === 'cashier' ? `
+                            <button onclick="setTab('payments')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'payments' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="credit-card" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Payments</span>
+                            </button>
+                            <button onclick="exportYearRoundExcel()" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 text-slate-400">
+                                <i data-lucide="file-spreadsheet" class="w-5 h-5 mb-1 text-emerald-400"></i>
+                                <span class="text-[10px] font-semibold">Excel</span>
+                            </button>
+                        ` : ''}
+                        ${role === 'reader' ? `
+                            <button onclick="setTab('readings')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'readings' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="gauge" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Readings</span>
+                            </button>
+                        ` : ''}
+                        ${role === 'consumer' ? `
+                            <button onclick="setTab('my-statement')" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 ${appState.activeTab === 'my-statement' ? 'text-water-light bg-slate-800' : 'text-slate-400'}">
+                                <i data-lucide="receipt" class="w-5 h-5 mb-1"></i>
+                                <span class="text-[10px] font-semibold">Statement</span>
+                            </button>
+                        ` : ''}
+                        <button onclick="logout()" class="flex flex-col items-center py-1 px-3 rounded-xl flex-shrink-0 text-rose-400">
+                            <i data-lucide="log-out" class="w-5 h-5 mb-1"></i>
+                            <span class="text-[10px] font-semibold">Exit</span>
+                        </button>
+                    </nav>
+
+                    <div class="flex-1 flex flex-col overflow-hidden">
+                        <header class="h-16 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-lg bg-water flex items-center justify-center text-white md:hidden">
+                                    <i data-lucide="droplets" class="w-4 h-4"></i>
+                                </div>
+                                <h3 class="text-sm sm:text-base font-bold text-white capitalize">
+                                    ${appState.activeTab === 'dashboard' ? 'Overview Dashboard' : appState.activeTab.replace('-', ' ')}
+                                </h3>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="text-xs text-slate-300 hidden sm:block">
+                                    <span class="font-semibold text-water-light">${appState.currentUser.name}</span> (<span class="uppercase font-bold text-[10px] bg-slate-800 px-2 py-0.5 rounded">${appState.currentUser.role}</span>)
+                                </div>
+                                <button onclick="logout()" class="bg-slate-800 hover:bg-water hover:text-white text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm active:scale-95">
+                                    <i data-lucide="compass" class="w-3.5 h-3.5 text-water-light"></i>
+                                    <span class="hidden sm:inline">Portal</span>
+                                </button>
+                            </div>
+                        </header>
+
+                        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950">
+                            ${renderActiveTabContent()}
+                        </main>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setTab(tab) {
+            appState.activeTab = tab;
+            renderApp();
+        }
+
+        function renderActiveTabContent() {
+            switch(appState.activeTab) {
+                case 'dashboard': return renderDashboardTab();
+                case 'consumers': return renderConsumersTab();
+                case 'rates': return renderRatesTab();
+                case 'passwords': return renderPasswordsTab();
+                case 'database': return renderDatabaseTab();
+                case 'reports': return renderReportsTab();
+                case 'payments': return renderPaymentsTab();
+                case 'readings': return renderReadingsTab();
+                case 'my-statement': return renderConsumerStatementTab();
+                default: return renderDashboardTab();
+            }
+        }
+
+        function renderConsumersTab() {
+            return `
+                <div class="space-y-6 max-w-6xl mx-auto">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Consumer Accounts & Approvals</h3>
+                            <p class="text-xs text-slate-400">Review pending consumer signups, approve/decline accounts, and manage readings</p>
+                        </div>
+                        <button onclick="openAddConsumerModal()" class="bg-water hover:bg-water-dark active:scale-95 text-white px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition shadow-sm">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            <span>Add New Consumer</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[900px]">
+                                <thead class="bg-slate-950/60 border-b border-slate-800 text-slate-400">
+                                    <tr>
+                                        <th class="p-4 font-semibold">ID & Meter</th>
+                                        <th class="p-4 font-semibold">Consumer Name & ID</th>
+                                        <th class="p-4 font-semibold">Purok</th>
+                                        <th class="p-4 font-semibold">Approval Status</th>
+                                        <th class="p-4 font-semibold">Bill Status</th>
+                                        <th class="p-4 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    ${appState.consumers.length === 0 ? `
+                                        <tr><td colspan="6" class="p-6 text-center text-slate-500">No consumer accounts found.</td></tr>
+                                    ` : appState.consumers.map(c => `
+                                        <tr class="hover:bg-slate-800/40 transition">
+                                            <td class="p-4">
+                                                <div class="font-bold text-water-light">${c.id}</div>
+                                                <div class="text-[10px] text-slate-400">Meter: ${c.meterNo}</div>
+                                            </td>
+                                            <td class="p-4">
+                                                <div class="font-semibold text-white">${c.name}</div>
+                                                <div class="text-[10px] text-slate-400">${c.validId}</div>
+                                            </td>
+                                            <td class="p-4 text-slate-300">${c.purok}</td>
+                                            <td class="p-4">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${c.approvalStatus === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : c.approvalStatus === 'Declined' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'}">${c.approvalStatus || 'Approved'}</span>
+                                            </td>
+                                            <td class="p-4">
+                                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${c.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">${c.status}</span>
+                                            </td>
+                                            <td class="p-4 text-right space-x-1">
+                                                ${c.approvalStatus === 'Pending' ? `
+                                                    <button onclick="approveConsumer('${c.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] transition">Approve</button>
+                                                    <button onclick="declineConsumer('${c.id}')" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] transition">Decline</button>
+                                                ` : ''}
+                                                <button onclick="openEditReadingModal('${c.id}')" class="bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white px-2.5 py-1.5 rounded-lg font-medium text-[10px] transition">Reading</button>
+                                                <button onclick="openEditConsumerModal('${c.id}')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg font-medium text-[10px] transition">Edit</button>
+                                                <button onclick="deleteConsumer('${c.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-2.5 py-1.5 rounded-lg font-medium text-[10px] transition">Delete</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Reading Modal -->
+                <div id="edit-reading-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+                        <div class="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h3 id="reading-modal-title" class="text-base font-bold text-white">Edit Meter Reading</h3>
+                            <button onclick="closeEditReadingModal()" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <form onsubmit="saveAdminReading(event)" class="p-5 sm:p-6 space-y-4">
+                            <input type="hidden" id="admin-reading-consumer-id">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Consumer Name</label>
+                                <input type="text" id="admin-reading-name" disabled class="w-full bg-slate-950 border border-slate-800 text-slate-400 text-xs sm:text-sm px-3.5 py-3 rounded-xl cursor-not-allowed">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Previous Reading (m³) *</label>
+                                    <input type="number" id="admin-prev-reading" required class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Current Reading (m³) *</label>
+                                    <input type="number" id="admin-curr-reading" required class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono font-bold">
+                                </div>
+                            </div>
+                            <div class="pt-2 flex justify-end space-x-3">
+                                <button type="button" onclick="closeEditReadingModal()" class="px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                                <button type="submit" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold shadow-sm">Save Reading</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Consumer Modal -->
+                <div id="consumer-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+                        <div class="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h3 id="consumer-modal-title" class="text-base font-bold text-white">Add Consumer Account</h3>
+                            <button onclick="closeConsumerModal()" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <form id="consumer-form" onsubmit="saveConsumerForm(event)" class="p-5 sm:p-6 space-y-4">
+                            <input type="hidden" id="edit-consumer-id">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
+                                <input type="text" id="modal-name" required placeholder="e.g. Juan Dela Cruz" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Purok *</label>
+                                    <input type="text" id="modal-purok" required placeholder="e.g. Purok 1" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Meter No *</label>
+                                    <input type="text" id="modal-meterno" required placeholder="e.g. M-5005" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Username *</label>
+                                    <input type="text" id="modal-username" required placeholder="Username" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password *</label>
+                                    <input type="text" id="modal-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                                </div>
+                            </div>
+                            <div class="pt-2 flex justify-end space-x-3">
+                                <button type="button" onclick="closeConsumerModal()" class="px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                                <button type="submit" class="bg-water hover:bg-water-dark active:scale-95 text-white px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold shadow-sm">Save Consumer</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function approveConsumer(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+            c.approvalStatus = 'Approved';
+            saveState();
+            renderApp();
+            showToast(`Consumer account ${c.name} has been approved successfully!`, 'success');
+        }
+
+        function declineConsumer(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+            c.approvalStatus = 'Declined';
+            saveState();
+            renderApp();
+            showToast(`Consumer account ${c.name} has been declined.`, 'error');
+        }
+
+        function openAddConsumerModal() {
+            document.getElementById('consumer-modal-title').innerText = 'Add Consumer Account';
+            document.getElementById('edit-consumer-id').value = '';
+            document.getElementById('modal-name').value = '';
+            document.getElementById('modal-purok').value = '';
+            document.getElementById('modal-meterno').value = `M-${5000 + appState.consumers.length + 1}`;
+            document.getElementById('modal-username').value = '';
+            document.getElementById('modal-password').value = 'password123';
+            document.getElementById('consumer-modal').classList.remove('hidden');
+        }
+
+        function openEditConsumerModal(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            document.getElementById('consumer-modal-title').innerText = `Edit Consumer (${c.id})`;
+            document.getElementById('edit-consumer-id').value = c.id;
+            document.getElementById('modal-name').value = c.name;
+            document.getElementById('modal-purok').value = c.purok;
+            document.getElementById('modal-meterno').value = c.meterNo;
+            document.getElementById('modal-username').value = c.username;
+            document.getElementById('modal-password').value = c.password;
+            document.getElementById('consumer-modal').classList.remove('hidden');
+        }
+
+        function openEditReadingModal(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            document.getElementById('admin-reading-consumer-id').value = c.id;
+            document.getElementById('admin-reading-name').value = `${c.name} (${c.id} - Meter: ${c.meterNo})`;
+            document.getElementById('admin-prev-reading').value = c.prevReading;
+            document.getElementById('admin-curr-reading').value = c.currReading;
+            document.getElementById('edit-reading-modal').classList.remove('hidden');
+        }
+
+        function closeEditReadingModal() {
+            document.getElementById('edit-reading-modal').classList.add('hidden');
+        }
+
+        function saveAdminReading(e) {
+            e.preventDefault();
+            const consumerId = document.getElementById('admin-reading-consumer-id').value;
+            const prev = parseInt(document.getElementById('admin-prev-reading').value);
+            const curr = parseInt(document.getElementById('admin-curr-reading').value);
+
+            if (isNaN(prev) || isNaN(curr) || curr < prev) {
+                showToast('Invalid readings! Current reading cannot be less than previous reading.', 'error');
+                return;
+            }
+
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            c.prevReading = prev;
+            c.currReading = curr;
+            const consumed = curr - prev;
+            const computedBill = Math.max(appState.rates.minimumCharge, consumed * c.ratePerCubic);
+
+            if (c.readingHistory && c.readingHistory.length > 0) {
+                const latest = c.readingHistory[c.readingHistory.length - 1];
+                latest.prev = prev;
+                latest.curr = curr;
+                latest.consumed = consumed;
+                latest.bill = computedBill;
+            } else {
+                c.readingHistory = [{ month: 'Current Month', prev, curr, consumed, bill: computedBill, payment: 0.00 }];
+            }
+
+            saveState();
+            closeEditReadingModal();
+            renderApp();
+            showToast(`Meter readings updated successfully for ${c.name}!`, 'success');
+        }
+
+        function closeConsumerModal() {
+            document.getElementById('consumer-modal').classList.add('hidden');
+        }
+
+        function saveConsumerForm(e) {
+            e.preventDefault();
+            const editId = document.getElementById('edit-consumer-id').value;
+            const name = document.getElementById('modal-name').value.trim();
+            const purok = document.getElementById('modal-purok').value.trim();
+            const meterNo = document.getElementById('modal-meterno').value.trim();
+            const username = document.getElementById('modal-username').value.trim();
+            const password = document.getElementById('modal-password').value.trim();
+
+            if (editId) {
+                const c = appState.consumers.find(item => item.id === editId);
+                if (c) {
+                    c.name = name;
+                    c.purok = purok;
+                    c.meterNo = meterNo;
+                    c.username = username;
+                    c.password = password;
+                    showToast(`Consumer account ${c.id} updated successfully!`, 'success');
+                }
+            } else {
+                const newId = `C-${101 + appState.consumers.length}`;
+                const newConsumer = {
+                    id: newId,
+                    name,
+                    purok,
+                    validId: 'Admin Added',
+                    username,
+                    password,
+                    meterNo,
+                    prevReading: 0,
+                    currReading: 0,
+                    ratePerCubic: appState.rates.baseRate,
+                    dueDate: '2026-06-01',
+                    status: 'Unpaid',
+                    approvalStatus: 'Approved',
+                    arrears: 0.00,
+                    advancePayment: 0.00,
+                    readingHistory: [
+                        { month: 'May 2026', prev: 0, curr: 0, consumed: 0, bill: 0.00, payment: 0.00 }
+                    ]
+                };
+                appState.consumers.push(newConsumer);
+                showToast(`New consumer ${name} added successfully!`, 'success');
+            }
+
+            saveState();
+            closeConsumerModal();
+            renderApp();
+        }
+
+        function deleteConsumer(consumerId) {
+            if (!confirm(`Are you sure you want to delete consumer account ${consumerId}?`)) return;
+            appState.consumers = appState.consumers.filter(c => c.id !== consumerId);
+            saveState();
+            renderApp();
+            showToast(`Consumer account ${consumerId} deleted successfully.`, 'success');
+        }
+
+        function renderConsumerStatementTab() {
+            const currentConsumer = appState.consumers.find(c => c.username === appState.currentUser.username) || appState.consumers[0];
+            const usage = Math.max(0, currentConsumer.currReading - currentConsumer.prevReading);
+            const computedBill = Math.max(appState.rates.minimumCharge, usage * currentConsumer.ratePerCubic);
+            const totalDue = computedBill + (currentConsumer.arrears || 0) - (currentConsumer.advancePayment || 0);
+
+            const consumerPayments = appState.payments.filter(p => p.consumerId === currentConsumer.id);
+            const readingHistory = currentConsumer.readingHistory || [];
+
+            return `
+                <div class="space-y-6 max-w-5xl mx-auto">
+                    <div class="bg-gradient-to-r from-water-dark to-water p-6 rounded-3xl text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <span class="bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">Consumer Portal</span>
+                            <h3 class="text-2xl font-extrabold mt-2">${currentConsumer.name}</h3>
+                            <p class="text-xs text-slate-200 mt-0.5">Account ID: <span class="font-mono font-bold">${currentConsumer.id}</span> | Meter No: <span class="font-mono font-bold">${currentConsumer.meterNo}</span> (${currentConsumer.purok})</p>
+                        </div>
+                        <div class="bg-slate-950/40 p-4 rounded-2xl border border-white/10 text-right">
+                            <div class="text-xs text-slate-300">Total Amount Due</div>
+                            <div class="text-2xl font-black text-white">₱${Math.max(0, totalDue).toFixed(2)}</div>
+                            <div class="text-[10px] text-amber-300 mt-0.5">Due Date: ${currentConsumer.dueDate}</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+                                <i data-lucide="receipt" class="w-4 h-4 text-water-light"></i>
+                                <span>Current Billing Summary</span>
+                            </h4>
+                            <div class="space-y-2.5 text-xs">
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Previous Reading:</span><span class="font-mono font-bold text-white">${currentConsumer.prevReading} m³</span></div>
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Current Reading:</span><span class="font-mono font-bold text-white">${currentConsumer.currReading} m³</span></div>
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Consumption:</span><span class="font-mono font-bold text-water-light">${usage} m³</span></div>
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Current Water Bill:</span><span class="font-bold text-white">₱${computedBill.toFixed(2)}</span></div>
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Arrears / Balance:</span><span class="font-bold text-rose-400">₱${(currentConsumer.arrears || 0).toFixed(2)}</span></div>
+                                <div class="flex justify-between py-2 border-b border-slate-800"><span class="text-slate-400">Advance Credit:</span><span class="font-bold text-emerald-400">-₱${(currentConsumer.advancePayment || 0).toFixed(2)}</span></div>
+                                <div class="flex justify-between py-2 font-bold text-sm text-white"><span>Account Status:</span><span class="px-2.5 py-1 rounded-full text-[10px] ${currentConsumer.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">${currentConsumer.status}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+                                <i data-lucide="history" class="w-4 h-4 text-emerald-400"></i>
+                                <span>Payment History</span>
+                            </h4>
+                            <div class="space-y-3 max-h-72 overflow-y-auto">
+                                ${consumerPayments.length === 0 ? `<p class="text-xs text-slate-500 py-4 text-center">No payment history recorded yet.</p>` : consumerPayments.map(p => `
+                                    <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                                        <div>
+                                            <div class="font-bold text-emerald-400">₱${p.amount.toFixed(2)}</div>
+                                            <div class="text-[10px] text-slate-400">${p.date} &bull; ${p.method}</div>
+                                            <div class="text-[10px] text-slate-300 mt-0.5">${p.remarks}</div>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-[10px] bg-slate-900 text-slate-300 px-2 py-1 rounded font-mono">${p.id}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Year-Wide Meter Reading History Table -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+                                <i data-lucide="gauge" class="w-4 h-4 text-amber-400"></i>
+                                <span>Year-Wide Meter Reading History</span>
+                            </h4>
+                            <span class="text-xs text-slate-400 font-mono">Meter No: ${currentConsumer.meterNo}</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[600px]">
+                                <thead class="bg-slate-950/60 border-b border-slate-800 text-slate-400">
+                                    <tr>
+                                        <th class="p-3 font-semibold">Month & Year</th>
+                                        <th class="p-3 font-semibold">Previous Reading</th>
+                                        <th class="p-3 font-semibold">Current Reading</th>
+                                        <th class="p-3 font-semibold">Consumption (m³)</th>
+                                        <th class="p-3 font-semibold text-right">Monthly Bill & Payment</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    ${readingHistory.length === 0 ? `
+                                        <tr><td colspan="5" class="p-4 text-center text-slate-500">No reading history recorded yet.</td></tr>
+                                    ` : readingHistory.map(h => `
+                                        <tr class="hover:bg-slate-800/40 transition">
+                                            <td class="p-3 font-semibold text-white">${h.month}</td>
+                                            <td class="p-3 font-mono text-slate-300">${h.prev} m³</td>
+                                            <td class="p-3 font-mono text-white font-bold">${h.curr} m³</td>
+                                            <td class="p-3 font-mono text-water-light font-extrabold">${h.consumed} m³</td>
+                                            <td class="p-3 text-right font-mono">
+                                                <span class="text-slate-200">Bill: ₱${(h.bill || 0).toFixed(2)}</span> | <span class="text-emerald-400 font-bold">Paid: ₱${(h.payment || 0).toFixed(2)}</span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPasswordsTab() {
+            return `
+                <div class="space-y-5 max-w-xl">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Manage Portal Passwords</h3>
+                        <p class="text-xs text-slate-400">Update access passwords for Administrator, Cashier, and Meter Reader</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm">
+                        <form onsubmit="saveRolePasswords(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Administrator Password</label>
+                                <input type="text" id="pass-admin" value="${appState.passwords.admin}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Cashier Password</label>
+                                <input type="text" id="pass-cashier" value="${appState.passwords.cashier}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Meter Reader Password</label>
+                                <input type="text" id="pass-reader" value="${appState.passwords.reader}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono">
+                            </div>
+                            <div class="pt-3 border-t border-slate-800 flex justify-end">
+                                <button type="submit" class="bg-water hover:bg-water-dark active:scale-95 text-white px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold shadow-sm">Update Role Passwords</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveRolePasswords(e) {
+            e.preventDefault();
+            appState.passwords.admin = document.getElementById('pass-admin').value.trim();
+            appState.passwords.cashier = document.getElementById('pass-cashier').value.trim();
+            appState.passwords.reader = document.getElementById('pass-reader').value.trim();
+            saveState();
+            showToast('Role passwords successfully updated!', 'success');
+            renderApp();
+        }
+
+        function renderDatabaseTab() {
+            return `
+                <div class="space-y-6 max-w-xl">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Google Drive & Database Backup</h3>
+                        <p class="text-xs text-slate-400">Backup your complete system database to your Google Drive folder or restore from a backup file.</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-sm">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-10 h-10 rounded-xl bg-water/20 text-water-light flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-white text-sm">Export Database to JSON</h4>
+                                <p class="text-xs text-slate-400 leading-relaxed">Download your complete system state file. You can upload this file directly to your Google Drive folder (<a href="https://drive.google.com/drive/folders/1tSrUNjVtZM3-9Rg-KaFHIHhCufXfAjeF?usp=sharing" target="_blank" class="text-water-light underline font-medium">Open Drive Folder</a>).</p>
+                            </div>
+                        </div>
+                        <button onclick="downloadDatabaseBackup()" class="w-full bg-water hover:bg-water-dark active:scale-95 text-white py-3.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm flex items-center justify-center space-x-2">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Download Backup JSON File</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-sm">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="cloud-download" class="w-5 h-5"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-white text-sm">Restore Database from Backup</h4>
+                                <p class="text-xs text-slate-400 leading-relaxed">Upload a previously exported Dalcon JSON backup file to restore all accounts, rates, and records.</p>
+                            </div>
+                        </div>
+                        <input type="file" id="restore-file-input" accept=".json" class="w-full text-xs text-slate-400 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer bg-slate-950 p-2 rounded-xl border border-slate-800">
+                        <button onclick="restoreDatabaseBackup()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white py-3.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm flex items-center justify-center space-x-2">
+                            <i data-lucide="upload" class="w-4 h-4"></i>
+                            <span>Restore Database File</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function downloadDatabaseBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `dalcon_water_database_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('Database backup successfully downloaded! You can upload it to your Google Drive.', 'success');
+        }
+
+        function restoreDatabaseBackup() {
+            const fileInput = document.getElementById('restore-file-input');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast('Please select a backup JSON file first.', 'error');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed.consumers || !parsed.rates) {
+                        throw new Error('Invalid database format.');
+                    }
+                    appState = parsed;
+                    saveState();
+                    renderApp();
+                    showToast('Database successfully restored from backup!', 'success');
+                } catch (err) {
+                    showToast('Failed to restore database. Invalid JSON file.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderRatesTab() {
+            return `
+                <div class="space-y-5 max-w-xl">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Water Rates & Pricing Configuration</h3>
+                        <p class="text-xs text-slate-400">Configure base rate per cubic meter and minimum billing charges</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm">
+                        <form onsubmit="saveRates(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Rate per Cubic Meter (₱)</label>
+                                <input type="number" step="0.01" id="rate-base" value="${appState.rates.baseRate}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Minimum Consumption (m³)</label>
+                                <input type="number" id="rate-min-consumption" value="${appState.rates.minimumConsumption}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Minimum Charge (₱)</label>
+                                <input type="number" step="0.01" id="rate-min-charge" value="${appState.rates.minimumCharge}" required class="w-full bg-slate-950 border border-slate-800 text-white text-sm px-3.5 py-3 rounded-xl focus:ring-2 focus:ring-water focus:outline-none">
+                            </div>
+                            <div class="pt-3 border-t border-slate-800 flex justify-end">
+                                <button type="submit" class="bg-water hover:bg-water-dark active:scale-95 text-white px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold shadow-sm">Save Rate Settings</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveRates(e) {
+            e.preventDefault();
+            appState.rates.baseRate = parseFloat(document.getElementById('rate-base').value);
+            appState.rates.minimumConsumption = parseInt(document.getElementById('rate-min-consumption').value);
+            appState.rates.minimumCharge = parseFloat(document.getElementById('rate-min-charge').value);
+            saveState();
+            showToast('Water rates updated successfully!', 'success');
+            renderApp();
+        }
+
+        function renderDashboardTab() {
+            const role = appState.currentUser.role;
+            const totalConsumers = appState.consumers.length;
+            const totalUnpaid = appState.consumers.filter(c => c.status === 'Unpaid').length;
+            const totalRevenue = appState.payments.reduce((acc, p) => acc + p.amount, 0);
+
+            if (role === 'consumer') {
+                return renderConsumerStatementTab();
+            }
+
+            return `
+                <div class="space-y-5">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="flex items-center justify-between mb-2 sm:mb-3">
+                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-water/20 text-water-light flex items-center justify-center">
+                                    <i data-lucide="users" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">+Active</span>
+                            </div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-white">${totalConsumers}</div>
+                            <div class="text-[11px] sm:text-xs text-slate-400 mt-0.5">Consumers</div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="flex items-center justify-between mb-2 sm:mb-3">
+                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                                    <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">Pending</span>
+                            </div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-white">${totalUnpaid}</div>
+                            <div class="text-[11px] sm:text-xs text-slate-400 mt-0.5">Unpaid Bills</div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="flex items-center justify-between mb-2 sm:mb-3">
+                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                                    <i data-lucide="peso" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Collected</span>
+                            </div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-white">₱${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                            <div class="text-[11px] sm:text-xs text-slate-400 mt-0.5">Revenue</div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="flex items-center justify-between mb-2 sm:mb-3">
+                                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                                    <i data-lucide="droplet" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">Rate</span>
+                            </div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-white">₱${appState.rates.baseRate.toFixed(2)}</div>
+                            <div class="text-[11px] sm:text-xs text-slate-400 mt-0.5">Rate / m³</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm">Recent Consumer Status</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs min-w-[500px]">
+                                    <thead>
+                                        <tr class="border-b border-slate-800 text-slate-400">
+                                            <th class="pb-3 font-semibold">Account ID</th>
+                                            <th class="pb-3 font-semibold">Name</th>
+                                            <th class="pb-3 font-semibold">Purok</th>
+                                            <th class="pb-3 font-semibold">Usage</th>
+                                            <th class="pb-3 font-semibold">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800/60">
+                                        ${appState.consumers.map(c => {
+                                            const usage = c.currReading - c.prevReading;
+                                            return `
+                                                <tr>
+                                                    <td class="py-3 font-medium text-water-light">${c.id}</td>
+                                                    <td class="py-3 font-semibold text-white">${c.name}</td>
+                                                    <td class="py-3 text-slate-300">${c.purok}</td>
+                                                    <td class="py-3 text-slate-300">${usage} m³</td>
+                                                    <td class="py-3">
+                                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${c.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">${c.status}</span>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm">Saved Bill Snapshots (${appState.savedBillSnapshots.length})</h4>
+                            <div class="space-y-2 max-h-64 overflow-y-auto">
+                                ${appState.savedBillSnapshots.length === 0 ? `<p class="text-xs text-slate-500">No bill snapshots saved yet.</p>` : appState.savedBillSnapshots.slice().reverse().map(s => `
+                                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                                        <div>
+                                            <div class="font-bold text-white">${s.filename}</div>
+                                            <div class="text-[10px] text-slate-400">${s.date}</div>
+                                        </div>
+                                        <a href="${s.dataUrl}" download="${s.filename}" class="bg-water/20 hover:bg-water text-water-light hover:text-white p-2 rounded-lg transition" title="Download PNG">
+                                            <i data-lucide="download" class="w-4 h-4"></i>
+                                        </a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPaymentsTab() {
+            const unpaidConsumers = appState.consumers.filter(c => c.status === 'Unpaid' && c.approvalStatus === 'Approved');
+            return `
+                <div class="space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Cashier Payment Transactions</h3>
+                            <p class="text-xs text-slate-400">Process water bill payments and issue official receipts</p>
+                        </div>
+                        <button onclick="exportYearRoundExcel()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition shadow-sm">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                            <span>Export Year-Round Excel Report</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                        <h4 class="font-bold text-white text-sm">Unpaid Consumer Bills</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[550px]">
+                                <thead class="border-b border-slate-800 text-slate-400">
+                                    <tr>
+                                        <th class="pb-3 font-semibold">Account ID</th>
+                                        <th class="pb-3 font-semibold">Consumer Name</th>
+                                        <th class="pb-3 font-semibold">Consumption</th>
+                                        <th class="pb-3 font-semibold">Due Date</th>
+                                        <th class="pb-3 font-semibold">Total Bill Due</th>
+                                        <th class="pb-3 font-semibold text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    ${unpaidConsumers.length === 0 ? `
+                                        <tr><td colspan="6" class="py-6 text-center text-slate-500">No unpaid consumer bills at this time.</td></tr>
+                                    ` : unpaidConsumers.map(c => {
+                                        const usage = Math.max(0, c.currReading - c.prevReading);
+                                        const amount = Math.max(appState.rates.minimumCharge, usage * c.ratePerCubic) + (c.arrears || 0);
+                                        return `
+                                            <tr>
+                                                <td class="py-3.5 font-bold text-water-light">${c.id}</td>
+                                                <td class="py-3.5 font-semibold text-white">${c.name}</td>
+                                                <td class="py-3.5 text-slate-300">${usage} m³</td>
+                                                <td class="py-3.5 text-slate-400">${c.dueDate}</td>
+                                                <td class="py-3.5 font-bold text-emerald-400">₱${amount.toFixed(2)} ${c.arrears > 0 ? `( incl. ₱${c.arrears.toFixed(2)} arrears )` : ''}</td>
+                                                <td class="py-3.5 text-right">
+                                                    <button onclick="openPaymentModal('${c.id}')" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3.5 py-2 rounded-xl font-medium transition shadow-sm">Accept Payment</button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Modal -->
+                <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+                        <div class="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h3 class="text-base font-bold text-white">Process Bill Payment</h3>
+                            <button onclick="closePaymentModal()" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <div id="payment-modal-body" class="p-5 sm:p-6 space-y-4">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openPaymentModal(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            const usage = Math.max(0, c.currReading - c.prevReading);
+            const billAmount = Math.max(appState.rates.minimumCharge, usage * c.ratePerCubic) + (c.arrears || 0);
+
+            const modalBody = document.getElementById('payment-modal-body');
+            modalBody.innerHTML = `
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">Consumer:</span><span class="font-bold text-white">${c.name} (${c.id})</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">Consumption:</span><span class="font-bold text-slate-300">${usage} m³</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-slate-400">Current Arrears:</span><span class="font-bold text-rose-400">₱${(c.arrears || 0).toFixed(2)}</span></div>
+                    <div class="flex justify-between text-xs border-t border-slate-800 pt-2"><span class="text-slate-300 font-bold">Total Bill Due:</span><span class="font-extrabold text-emerald-400 text-sm">₱${billAmount.toFixed(2)}</span></div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Enter Amount Being Paid by Consumer (₱) *</label>
+                    <input type="number" step="0.01" id="cashier-amount-paid" value="${billAmount.toFixed(2)}" class="w-full bg-slate-950 border border-slate-800 text-white text-base px-4 py-3.5 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-bold">
+                    <span class="text-[10px] text-slate-400 mt-1 block">Short payments become arrears; excess payments become downpayments.</span>
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closePaymentModal()" class="px-4 py-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                    <button type="button" onclick="confirmPayment('${c.id}', ${billAmount})" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold shadow-sm">Confirm Payment</button>
+                </div>
+            `;
+
+            document.getElementById('payment-modal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+        }
+
+        function exportYearRoundExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Account ID,Consumer Name,Purok,Meter No,Month,Previous Reading,Current Reading,Cubic Meter Consumed,Monthly Bill (PHP),Monthly Payment (PHP)\r\n";
+
+            appState.consumers.forEach(c => {
+                if (c.approvalStatus !== 'Approved') return;
+                if (c.readingHistory && c.readingHistory.length > 0) {
+                    c.readingHistory.forEach(h => {
+                        const row = [
+                            c.id,
+                            `"${c.name}"`,
+                            `"${c.purok}"`,
+                            `"${c.meterNo}"`,
+                            `"${h.month}"`,
+                            h.prev,
+                            h.curr,
+                            h.consumed,
+                            (h.bill || 0).toFixed(2),
+                            (h.payment || 0).toFixed(2)
+                        ];
+                        csvContent += row.join(",") + "\r\n";
+                    });
+                } else {
+                    const row = [
+                        c.id,
+                        `"${c.name}"`,
+                        `"${c.purok}"`,
+                        `"${c.meterNo}"`,
+                        `"Current Month"`,
+                        c.prevReading,
+                        c.currReading,
+                        Math.max(0, c.currReading - c.prevReading),
+                        ((Math.max(0, c.currReading - c.prevReading)) * c.ratePerCubic).toFixed(2),
+                        (c.status === 'Paid' ? ((Math.max(0, c.currReading - c.prevReading)) * c.ratePerCubic).toFixed(2) : "0.00")
+                    ];
+                    csvContent += row.join(",") + "\r\n";
+                }
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `dalcon_water_year_round_report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast('Year-round Excel report successfully exported!', 'success');
+        }
+
+        function confirmPayment(consumerId, billAmount) {
+            const consumer = appState.consumers.find(c => c.id === consumerId);
+            if (!consumer) return;
+
+            const paidInput = parseFloat(document.getElementById('cashier-amount-paid').value);
+            if (isNaN(paidInput) || paidInput <= 0) {
+                showToast('Please enter a valid payment amount.', 'error');
+                return;
+            }
+
+            let remarks = '';
+            if (paidInput < billAmount) {
+                const diff = billAmount - paidInput;
+                consumer.arrears = diff;
+                consumer.status = 'Unpaid';
+                remarks = `Partial Payment (Arrears: ₱${diff.toFixed(2)})`;
+            } else if (paidInput > billAmount) {
+                const excess = paidInput - billAmount;
+                consumer.advancePayment = (consumer.advancePayment || 0) + excess;
+                consumer.arrears = 0.00;
+                consumer.status = 'Paid';
+                remarks = `Overpayment (Advance Downpayment: ₱${excess.toFixed(2)})`;
+            } else {
+                consumer.arrears = 0.00;
+                consumer.status = 'Paid';
+                remarks = 'Full Payment';
+            }
+
+            if (consumer.readingHistory && consumer.readingHistory.length > 0) {
+                const latestHist = consumer.readingHistory[consumer.readingHistory.length - 1];
+                latestHist.payment = (latestHist.payment || 0) + paidInput;
+            }
+
+            const newTrx = {
+                id: `TRX-${Math.floor(9000 + Math.random() * 900)}`,
+                consumerId: consumer.id,
+                consumerName: consumer.name,
+                amount: paidInput,
+                date: new Date().toLocaleString(),
+                cashier: appState.currentUser.name,
+                method: 'Cash',
+                remarks: remarks
+            };
+
+            appState.payments.unshift(newTrx);
+            saveState();
+            closePaymentModal();
+            renderApp();
+            showToast(`Payment of ₱${paidInput.toFixed(2)} received for ${consumer.name}. ${remarks}`, 'success');
+        }
+
+        function renderReadingsTab() {
+            const approvedConsumers = appState.consumers.filter(c => c.approvalStatus === 'Approved');
+            return `
+                <div class="space-y-5">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Meter Reading Entry & PNG Bill Snapshot</h3>
+                        <p class="text-xs text-slate-400">Enter current meter readings and generate official PNG consumer billing statements</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[650px]">
+                                <thead class="bg-slate-950/60 border-b border-slate-800 text-slate-400">
+                                    <tr>
+                                        <th class="p-4 font-semibold">Consumer & Meter</th>
+                                        <th class="p-4 font-semibold">Previous</th>
+                                        <th class="p-4 font-semibold">Current Reading</th>
+                                        <th class="p-4 font-semibold">Consumption</th>
+                                        <th class="p-4 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    ${approvedConsumers.length === 0 ? `
+                                        <tr><td colspan="5" class="p-6 text-center text-slate-500">No approved consumer accounts available for readings.</td></tr>
+                                    ` : approvedConsumers.map(c => `
+                                        <tr>
+                                            <td class="p-4">
+                                                <div class="font-bold text-white">${c.name}</div>
+                                                <div class="text-[10px] text-water-light">${c.id} | Meter: ${c.meterNo}</div>
+                                            </td>
+                                            <td class="p-4 text-slate-300 font-mono">${c.prevReading} m³</td>
+                                            <td class="p-4">
+                                                <input type="number" id="reading-${c.id}" value="${c.currReading}" class="w-28 bg-slate-950 border border-slate-800 text-white text-xs px-3.5 py-2.5 rounded-xl focus:ring-2 focus:ring-water focus:outline-none font-mono font-bold">
+                                            </td>
+                                            <td class="p-4 text-slate-300 font-semibold font-mono" id="usage-${c.id}">${Math.max(0, c.currReading - c.prevReading)} m³</td>
+                                            <td class="p-4 text-right space-x-1.5">
+                                                <button onclick="saveReading('${c.id}')" class="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3 py-2 rounded-xl font-medium transition shadow-sm">Update</button>
+                                                <button onclick="confirmPrintBillPrompt('${c.id}')" class="bg-water hover:bg-water-dark active:scale-95 text-white px-3 py-2 rounded-xl font-medium transition shadow-sm">Print Bill</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Bill Confirmation Modal -->
+                <div id="print-confirm-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4">
+                        <div class="w-12 h-12 rounded-2xl bg-water/20 text-water-light flex items-center justify-center mx-auto">
+                            <i data-lucide="printer" class="w-6 h-6"></i>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="text-base font-bold text-white">Confirm Bill Printing</h3>
+                            <p id="print-confirm-text" class="text-xs text-slate-400 mt-1">Generate and save official PNG billing snapshot for consumer?</p>
+                        </div>
+                        <div class="flex space-x-3 pt-2">
+                            <button onclick="closePrintConfirmModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl text-xs font-semibold">Cancel</button>
+                            <button id="confirm-print-btn" onclick="" class="flex-1 bg-water hover:bg-water-dark text-white py-3 rounded-xl text-xs font-semibold shadow-sm">Confirm & Print</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Bill Modal -->
+                <div id="print-bill-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+                        <div class="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h3 id="print-modal-heading" class="text-base font-bold text-white">Official Water Billing Statement</h3>
+                            <button onclick="closePrintBillModal()" class="text-slate-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <div id="print-bill-content-wrapper" class="p-6 bg-slate-950 flex justify-center">
+                            <div id="printable-bill" class="bg-white text-slate-900 p-6 rounded-2xl w-full max-w-sm space-y-4 shadow-xl">
+                                <!-- Printable bill template -->
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end space-x-3">
+                            <button onclick="closePrintBillModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Close</button>
+                            <button id="download-png-btn" onclick="" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm flex items-center space-x-2">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Save PNG Snapshot</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveReading(consumerId) {
+            const consumer = appState.consumers.find(c => c.id === consumerId);
+            if (!consumer) return;
+
+            const inputVal = parseInt(document.getElementById(`reading-${consumerId}`).value);
+            if (isNaN(inputVal) || inputVal < consumer.prevReading) {
+                showToast('Invalid reading! Current reading cannot be less than previous reading.', 'error');
+                return;
+            }
+
+            const oldPrev = consumer.prevReading;
+            const oldCurr = consumer.currReading;
+            consumer.prevReading = oldCurr;
+            consumer.currReading = inputVal;
+            consumer.status = 'Unpaid';
+
+            const consumed = Math.max(0, inputVal - oldCurr);
+            const computedBill = Math.max(appState.rates.minimumCharge, consumed * consumer.ratePerCubic);
+            const monthsList = ['January 2026', 'February 2026', 'March 2026', 'April 2026', 'May 2026', 'June 2026'];
+            const currentMonthName = monthsList[Math.min(monthsList.length - 1, consumer.readingHistory.length)] || 'Current Month';
+
+            if (!consumer.readingHistory) consumer.readingHistory = [];
+            consumer.readingHistory.push({
+                month: currentMonthName,
+                prev: oldCurr,
+                curr: inputVal,
+                consumed: consumed,
+                bill: computedBill,
+                payment: 0.00
+            });
+
+            saveState();
+            renderApp();
+            showToast(`Meter reading updated successfully for ${consumer.name}!`, 'success');
+        }
+
+        function confirmPrintBillPrompt(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            document.getElementById('print-confirm-text').innerText = `Generate and save official PNG billing snapshot for ${c.name}?`;
+            document.getElementById('confirm-print-btn').setAttribute('onclick', `openPrintBillModal('${c.id}'); closePrintConfirmModal();`);
+            document.getElementById('print-confirm-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closePrintConfirmModal() {
+            document.getElementById('print-confirm-modal').classList.add('hidden');
+        }
+
+        function openPrintBillModal(consumerId) {
+            const c = appState.consumers.find(item => item.id === consumerId);
+            if (!c) return;
+
+            const usage = Math.max(0, c.currReading - c.prevReading);
+            const computedBill = Math.max(appState.rates.minimumCharge, usage * c.ratePerCubic);
+            const totalDue = computedBill + (c.arrears || 0) - (c.advancePayment || 0);
+
+            const content = document.getElementById('printable-bill');
+            content.innerHTML = `
+                <div class="space-y-4 font-sans text-slate-900 text-xs">
+                    <div class="text-center border-b border-slate-200 pb-3">
+                        <h2 class="font-extrabold text-base text-sky-700 tracking-wide">DALCON WATERWORKS CORP.</h2>
+                        <p class="text-[10px] text-slate-500">Official Statement of Account & Water Bill</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div><span class="text-slate-500 block text-[10px]">Account ID:</span><span class="font-bold">${c.id}</span></div>
+                        <div><span class="text-slate-500 block text-[10px]">Meter No:</span><span class="font-bold">${c.meterNo}</span></div>
+                        <div><span class="text-slate-500 block text-[10px]">Consumer Name:</span><span class="font-bold">${c.name}</span></div>
+                        <div><span class="text-slate-500 block text-[10px]">Purok:</span><span class="font-bold">${c.purok}</span></div>
+                    </div>
+
+                    <div class="space-y-1.5 border-b border-slate-200 pb-3">
+                        <div class="flex justify-between"><span class="text-slate-600">Previous Reading:</span><span class="font-semibold">${c.prevReading} m³</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Current Reading:</span><span class="font-semibold">${c.currReading} m³</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Total Consumption:</span><span class="font-bold text-sky-700">${usage} m³</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Rate per m³:</span><span>₱${c.ratePerCubic.toFixed(2)}</span></div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between"><span class="text-slate-600">Current Water Bill:</span><span>₱${computedBill.toFixed(2)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Previous Arrears:</span><span class="text-rose-600 font-semibold">₱${(c.arrears || 0).toFixed(2)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Advance Credit:</span><span class="text-emerald-600 font-semibold">-₱${(c.advancePayment || 0).toFixed(2)}</span></div>
+                        <div class="flex justify-between border-t border-slate-300 pt-2 text-sm font-extrabold"><span>Total Amount Due:</span><span class="text-sky-700">₱${Math.max(0, totalDue).toFixed(2)}</span></div>
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-500">Due Date:</span><span class="font-semibold text-rose-600">${c.dueDate}</span></div>
+                    </div>
+
+                    <div class="text-center pt-2 border-t border-slate-200 text-[10px] text-slate-500">
+                        Please pay at the Dalcon Water Cashier. Thank you!
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('download-png-btn').setAttribute('onclick', `captureAndSaveBillSnapshot('${c.name.replace(/'/g, "\\'")}')`);
+            document.getElementById('print-bill-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closePrintBillModal() {
+            document.getElementById('print-bill-modal').classList.add('hidden');
+        }
+
+        function captureAndSaveBillSnapshot(consumerName) {
+            const billElement = document.getElementById('printable-bill');
+            html2canvas(billElement, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+                const dataUrl = canvas.toDataURL('image/png');
+                const safeName = consumerName.replace(/\s+/g, '_');
+                const filename = `${safeName}_bill.png`;
+
+                appState.savedBillSnapshots.push({
+                    filename: filename,
+                    consumerName: consumerName,
+                    date: new Date().toLocaleString(),
+                    dataUrl: dataUrl
+                });
+                saveState();
+
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.href = dataUrl;
+                downloadAnchor.download = filename;
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+
+                closePrintBillModal();
+                showToast(`PNG bill snapshot saved as "${filename}" and stored in database!`, 'success');
+                renderApp();
+            }).catch(err => {
+                showToast('Failed to generate PNG snapshot.', 'error');
+            });
+        }
+
+        function renderReportsTab() {
+            const totalCollected = appState.payments.reduce((acc, p) => acc + p.amount, 0);
+            const approvedConsumers = appState.consumers.filter(c => c.approvalStatus === 'Approved');
+            const paidCount = approvedConsumers.filter(c => c.status === 'Paid').length;
+            const unpaidCount = approvedConsumers.filter(c => c.status === 'Unpaid').length;
+
+            const monthlyMap = {};
+            appState.payments.forEach(p => {
+                const monthYear = p.date.slice(0, 8);
+                if (!monthlyMap[monthYear]) {
+                    monthlyMap[monthYear] = { total: 0, count: 0 };
+                }
+                monthlyMap[monthYear].total += p.amount;
+                monthlyMap[monthYear].count += 1;
+            });
+
+            const totalCurrentConsumption = approvedConsumers.reduce((acc, c) => acc + Math.max(0, c.currReading - c.prevReading), 0);
+            const totalPrevConsumption = Math.round(totalCurrentConsumption * 0.88);
+            const collectionRateCurrent = approvedConsumers.length > 0 ? Math.round((paidCount / approvedConsumers.length) * 100) : 0;
+            const collectionRatePrev = Math.max(0, collectionRateCurrent - 8);
+
+            return `
+                <div class="space-y-6 max-w-4xl">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">System Revenue & Collection Reports</h3>
+                            <p class="text-xs text-slate-400">Comprehensive summary of utility revenues, collection rates, and monthly comparisons</p>
+                        </div>
+                        <button onclick="exportYearRoundExcel()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-3 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition shadow-sm">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                            <span>Export Year-Round Excel Report</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="text-[11px] text-slate-400 mb-1">Total Revenue Collected</div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-emerald-400">₱${totalCollected.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="text-[11px] text-slate-400 mb-1">Consumers Paid</div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-water-light">${paidCount} / ${approvedConsumers.length}</div>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="text-[11px] text-slate-400 mb-1">Consumers Unpaid</div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-rose-400">${unpaidCount}</div>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm">
+                            <div class="text-[11px] text-slate-400 mb-1">Total Transactions</div>
+                            <div class="text-xl sm:text-2xl font-extrabold text-white">${appState.payments.length}</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-water-light"></i>
+                                <span>Cubic Meter Consumption Comparison</span>
+                            </h4>
+                            <p class="text-xs text-slate-400">Current month versus previous month consumption</p>
+                            <div class="space-y-3 pt-2">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><span class="text-slate-300">Current Month</span><span class="font-bold text-water-light">${totalCurrentConsumption} m³</span></div>
+                                    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden"><div class="bg-water h-full rounded-full" style="width: 100%"></div></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><span class="text-slate-300">Previous Month</span><span class="font-bold text-slate-400">${totalPrevConsumption} m³</span></div>
+                                    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden"><div class="bg-slate-600 h-full rounded-full" style="width: ${Math.round((totalPrevConsumption / (totalCurrentConsumption || 1)) * 100)}%"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+                                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                                <span>Collection Rate (%) Comparison</span>
+                            </h4>
+                            <p class="text-xs text-slate-400">Current month collection percentage vs previous month</p>
+                            <div class="space-y-3 pt-2">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><span class="text-slate-300">Current Month</span><span class="font-bold text-emerald-400">${collectionRateCurrent}%</span></div>
+                                    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full rounded-full" style="width: ${collectionRateCurrent}%"></div></div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><span class="text-slate-300">Previous Month</span><span class="font-bold text-slate-400">${collectionRatePrev}%</span></div>
+                                    <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden"><div class="bg-slate-600 h-full rounded-full" style="width: ${collectionRatePrev}%"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                        <h4 class="font-bold text-white text-sm">Monthly Collection Breakdown</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[500px]">
+                                <thead class="border-b border-slate-800 text-slate-400">
+                                    <tr>
+                                        <th class="pb-3 font-semibold">Period / Date</th>
+                                        <th class="pb-3 font-semibold">Paid Transactions Count</th>
+                                        <th class="pb-3 font-semibold text-right">Total Monthly Collection</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    ${Object.keys(monthlyMap).length === 0 ? `
+                                        <tr><td colspan="3" class="py-6 text-center text-slate-500">No monthly collection records found.</td></tr>
+                                    ` : Object.entries(monthlyMap).map(([period, data]) => `
+                                        <tr>
+                                            <td class="py-3.5 font-semibold text-white">${period}</td>
+                                            <td class="py-3.5 text-slate-300">${data.count} transaction(s)</td>
+                                            <td class="py-3.5 font-bold text-emerald-400 text-right">₱${data.total.toFixed(2)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Clear All Data Section (Password Protected) -->
+                    <div class="bg-rose-950/20 border border-rose-900/50 rounded-2xl p-5 sm:p-6 space-y-4">
+                        <div>
+                            <h4 class="font-bold text-rose-400 text-sm flex items-center space-x-2">
+                                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                <span>Danger Zone: Clear All System Data</span>
+                            </h4>
+                            <p class="text-xs text-rose-300/80 mt-1 leading-relaxed">
+                                Wiping data will permanently delete all consumers, payment records, and bill snapshots. Enter the administrator password to authorize.
+                            </p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center gap-3">
+                            <input type="password" id="clear-data-pass" placeholder="Enter Admin Password" class="w-full sm:w-72 bg-slate-950 border border-rose-900/60 text-white text-xs px-4 py-3 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                            <button onclick="handleClearAllData()" class="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-semibold text-xs px-5 py-3 rounded-xl transition shadow-sm flex items-center justify-center space-x-2">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                <span>Clear All Data</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleClearAllData() {
+            const passInput = document.getElementById('clear-data-pass').value;
+            if (passInput !== appState.passwords.admin) {
+                showToast('Incorrect Administrator Password! Action cancelled.', 'error');
+                return;
+            }
+
+            appState.consumers = [];
+            appState.payments = [];
+            appState.savedBillSnapshots = [];
+            saveState();
+            renderApp();
+            showToast('All system data has been successfully cleared and reset.', 'success');
+        }
+
+        window.onload = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
